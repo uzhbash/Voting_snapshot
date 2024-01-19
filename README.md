@@ -51,4 +51,6 @@ username:password@ip:port
 ```
 pip install web3==6.0.0b7 
 pip install eth_account==0.7.0
+pip install tqdm
+pip install loguru
 ```
