@@ -4,10 +4,11 @@ import time
 from loguru import logger
 import aiohttp
 import asyncio
-from config import TIME, TIMEMAX, TIME_ERROR
+from config import TIME, TIMEMAX, TIME_ERROR, USE_PROXY
 import random
 import ast
 import json
+from tqdm import tqdm
 
 logger.add(f'log.log')
 
@@ -143,11 +144,14 @@ def signature(address, space, proposal, choice, timestamp, key, type_choice="uin
     signature = (w3.eth.account.sign_message(encode_structured_data(primitive=sig_signature), key))['signature'].hex()
     return signature
 
+def sleep_indicator(sec):
+    for i in tqdm(range(sec), desc='жду', bar_format="{desc}: {n_fmt}c /{total_fmt}c {bar}", colour='green'):
+        time.sleep(1)
 
 # endregion
 
 async def req(key, p):
-    tm = random.randint(1, TIMEMAX)
+    tm = random.randint(1, 3)
 
     await asyncio.sleep(tm)
     global x
@@ -179,39 +183,72 @@ async def req(key, p):
             address = w3.eth.account.from_key(key).address
 
             async with aiohttp.ClientSession(headers=headers) as ses:
-                async with ses.post('https://seq.snapshot.org/', json=forma(
+                if p:
+                    async with ses.post('https://seq.snapshot.org/', json=forma(
                         address,
                         signature(address, SPACE, PROPOSAL, CHOICE, timestamp, key, type_choise),
                         SPACE, PROPOSAL, CHOICE, timestamp, type_choise
-                ), proxy=f'http://{p}', headers=headers) as r:
-                    try:
+                    ), proxy=f'http://{p}', headers=headers) as r:
+                        try:
+                            data = await r.json()
 
-                        data = await r.json()
+                            if data.get('id') is None:
+                                if data.get('error_description') == 'no voting power':
+                                    logger.info(
+                                        f"[{num_acc}/{len(keys)}][{k + 1}/{len(proposal_data)}] {address} PROPOSAL -> {PROPOSAL[:10]} Error-> {data.get('error_description')}")
+                                    STATUS = False
 
-                        if data.get('id') == None:
-                            if data.get('error_description') == 'no voting power':
-                                logger.info(
-                                    f"[{num_acc}/{len(keys)}][{k + 1}/{len(proposal_data)}] {address} PROPOSAL -> {PROPOSAL[:10]} Error-> {data.get('error_description')}")
-                                STATUS = False
+                                elif data.get('error_description') == 'failed to check voting power':
+                                    sleep_indicator(random.randint(1, TIME_ERROR))
 
-                            elif data.get('error_description') == 'failed to check voting power':
-                                await asyncio.sleep(TIME_ERROR)
+                                else:
+                                    logger.error(
+                                        f"[{num_acc}/{len(keys)}][{k + 1}/{len(proposal_data)}] {address} PROPOSAL -> {PROPOSAL[:10]} Error-> {data.get('error_description')}")
+                                    sleep_indicator(random.randint(1, TIME_ERROR))
 
                             else:
-                                logger.error(
-                                    f"[{num_acc}/{len(keys)}][{k + 1}/{len(proposal_data)}] {address} PROPOSAL -> {PROPOSAL[:10]} Error-> {data.get('error_description')}")
-                                await asyncio.sleep(TIME_ERROR)
+                                logger.success(
+                                    f"[{num_acc}/{len(keys)}][{k + 1}/{len(proposal_data)}] {address} PROPOSAL -> {PROPOSAL[:10]} Success")
+                                sleep_indicator(random.randint(TIME, TIMEMAX))
+                                STATUS = False
+                                
+                        except Exception as e:
+                            logger.error(f'{address} -> failed check json')
+                            sleep_indicator(random.randint(7, TIME_ERROR))
+                else:
+                    async with ses.post('https://seq.snapshot.org/', json=forma(
+                        address,
+                        signature(address, SPACE, PROPOSAL, CHOICE, timestamp, key, type_choise),
+                        SPACE, PROPOSAL, CHOICE, timestamp, type_choise
+                    ), headers=headers) as r:
+                        try:
+                            data = await r.json()
 
-                        else:
-                            logger.success(
-                                f"[{num_acc}/{len(keys)}][{k + 1}/{len(proposal_data)}] {address} PROPOSAL -> {PROPOSAL[:10]} Success")
-                            STATUS = False
+                            if data.get('id') is None:
+                                if data.get('error_description') == 'no voting power':
+                                    logger.info(
+                                        f"[{num_acc}/{len(keys)}][{k + 1}/{len(proposal_data)}] {address} PROPOSAL -> {PROPOSAL[:10]} Error-> {data.get('error_description')}")
+                                    STATUS = False
 
-                    except Exception as e:
-                        # logger.error(f'{address} -> failed check json')
-                        await asyncio.sleep(TIME_ERROR)
+                                elif data.get('error_description') == 'failed to check voting power':
+                                    sleep_indicator(random.randint(1, TIME_ERROR))
 
-        await asyncio.sleep(random.randint(1, TIME))
+                                else:
+                                    logger.error(
+                                        f"[{num_acc}/{len(keys)}][{k + 1}/{len(proposal_data)}] {address} PROPOSAL -> {PROPOSAL[:10]} Error-> {data.get('error_description')}")
+                                    sleep_indicator(random.randint(1, TIME_ERROR))
+
+                            else:
+                                logger.success(
+                                    f"[{num_acc}/{len(keys)}][{k + 1}/{len(proposal_data)}] {address} PROPOSAL -> {PROPOSAL[:10]} Success")
+                                sleep_indicator(random.randint(TIME, TIMEMAX))
+                                STATUS = False
+                            
+                        except Exception as e:
+                            logger.error(f'{address} -> failed check json')
+                            sleep_indicator(random.randint(7, TIME_ERROR))
+
+        await asyncio.sleep(random.randint(27, TIME))
 
 
 with open('key.txt', 'r') as f:
@@ -225,8 +262,10 @@ x = 1
 
 
 async def main():
-    await asyncio.gather(*[req(k, prox[v]) for v, k in enumerate(keys)])
-
+    if USE_PROXY is True:
+        await asyncio.gather(*[req(k, prox[v]) for v, k in enumerate(keys)])
+    else:
+        await asyncio.gather(*[req(k, None) for k in keys])
 
 if __name__ == '__main__':
     asyncio.run(main())
