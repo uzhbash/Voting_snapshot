@@ -184,72 +184,83 @@ async def req(key, p):
 
             async with aiohttp.ClientSession(headers=headers) as ses:
                 if p:
-                    async with ses.post('https://seq.snapshot.org/', json=forma(
-                        address,
-                        signature(address, SPACE, PROPOSAL, CHOICE, timestamp, key, type_choise),
-                        SPACE, PROPOSAL, CHOICE, timestamp, type_choise
-                    ), proxy=f'http://{p}', headers=headers) as r:
+                    for attempt in range(3):  # Retry up to 3 times
                         try:
-                            data = await r.json()
+                            async with ses.post('https://seq.snapshot.org/', json=forma(
+                                address,
+                                signature(address, SPACE, PROPOSAL, CHOICE, timestamp, key, type_choise),
+                                SPACE, PROPOSAL, CHOICE, timestamp, type_choise
+                            ), proxy=f'http://{p}', headers=headers, timeout=60) as r:  # Set timeout to 60 seconds
+                                data = await r.json()
+                                # Process the response
+                                try:
+                                    data = await r.json()
 
-                            if data.get('id') is None:
-                                if data.get('error_description') == 'no voting power':
-                                    logger.info(
-                                        f"[{num_acc}/{len(keys)}][{k + 1}/{len(proposal_data)}] {address} PROPOSAL -> {PROPOSAL[:10]} Error-> {data.get('error_description')}")
-                                    STATUS = False
-
-                                elif data.get('error_description') == 'failed to check voting power':
-                                    sleep_indicator(random.randint(1, TIME_ERROR))
-
-                                else:
-                                    logger.error(
-                                        f"[{num_acc}/{len(keys)}][{k + 1}/{len(proposal_data)}] {address} PROPOSAL -> {PROPOSAL[:10]} Error-> {data.get('error_description')}")
-                                    sleep_indicator(random.randint(1, TIME_ERROR))
-
+                                    if data.get('id') is None:
+                                        if data.get('error_description') == 'no voting power':
+                                            logger.info(
+                                                f"[{num_acc}/{len(keys)}][{k + 1}/{len(proposal_data)}] {address} PROPOSAL -> {PROPOSAL[:10]} Error-> {data.get('error_description')}")
+                                            STATUS = False
+                                        elif data.get('error_description') == 'failed to check voting power':
+                                            sleep_indicator(random.randint(1, TIME_ERROR))
+                                        else:
+                                            logger.error(
+                                                f"[{num_acc}/{len(keys)}][{k + 1}/{len(proposal_data)}] {address} PROPOSAL -> {PROPOSAL[:10]} Error-> {data.get('error_description')}")
+                                            sleep_indicator(random.randint(1, TIME_ERROR))
+                                    else:
+                                        logger.success(
+                                            f"[{num_acc}/{len(keys)}][{k + 1}/{len(proposal_data)}] {address} PROPOSAL -> {PROPOSAL[:10]} Success")
+                                        sleep_indicator(random.randint(TIME, TIMEMAX))
+                                        STATUS = False
+                                except Exception as e:
+                                    logger.error(f'{address} -> failed check json')
+                                    sleep_indicator(random.randint(7, TIME_ERROR))
+                                break  # Break out of the retry loop if successful
+                        except asyncio.TimeoutError:
+                            if attempt < 2:  # If not the last attempt
+                                await asyncio.sleep(3)  # Wait for 3 seconds before retrying
                             else:
-                                logger.success(
-                                    f"[{num_acc}/{len(keys)}][{k + 1}/{len(proposal_data)}] {address} PROPOSAL -> {PROPOSAL[:10]} Success")
-                                sleep_indicator(random.randint(TIME, TIMEMAX))
-                                STATUS = False
-                                
-                        except Exception as e:
-                            logger.error(f'{address} -> failed check json')
-                            sleep_indicator(random.randint(7, TIME_ERROR))
+                                # Log or handle the failure after all attempts
+                                print("Request timed out after multiple attempts")
                 else:
-                    async with ses.post('https://seq.snapshot.org/', json=forma(
-                        address,
-                        signature(address, SPACE, PROPOSAL, CHOICE, timestamp, key, type_choise),
-                        SPACE, PROPOSAL, CHOICE, timestamp, type_choise
-                    ), headers=headers) as r:
+                    for attempt in range(3):  # Retry up to 3 times
                         try:
-                            data = await r.json()
+                            async with ses.post('https://seq.snapshot.org/', json=forma(
+                                address,
+                                signature(address, SPACE, PROPOSAL, CHOICE, timestamp, key, type_choise),
+                                SPACE, PROPOSAL, CHOICE, timestamp, type_choise
+                            ), headers=headers) as r:
+                                data = await r.json()
+                                try:
+                                    data = await r.json()
 
-                            if data.get('id') is None:
-                                if data.get('error_description') == 'no voting power':
-                                    logger.info(
-                                        f"[{num_acc}/{len(keys)}][{k + 1}/{len(proposal_data)}] {address} PROPOSAL -> {PROPOSAL[:10]} Error-> {data.get('error_description')}")
-                                    STATUS = False
-
-                                elif data.get('error_description') == 'failed to check voting power':
-                                    sleep_indicator(random.randint(1, TIME_ERROR))
-
-                                else:
-                                    logger.error(
-                                        f"[{num_acc}/{len(keys)}][{k + 1}/{len(proposal_data)}] {address} PROPOSAL -> {PROPOSAL[:10]} Error-> {data.get('error_description')}")
-                                    sleep_indicator(random.randint(1, TIME_ERROR))
-
+                                    if data.get('id') is None:
+                                        if data.get('error_description') == 'no voting power':
+                                            logger.info(
+                                                f"[{num_acc}/{len(keys)}][{k + 1}/{len(proposal_data)}] {address} PROPOSAL -> {PROPOSAL[:10]} Error-> {data.get('error_description')}")
+                                            STATUS = False
+                                        elif data.get('error_description') == 'failed to check voting power':
+                                            sleep_indicator(random.randint(1, TIME_ERROR))
+                                        else:
+                                            logger.error(
+                                                f"[{num_acc}/{len(keys)}][{k + 1}/{len(proposal_data)}] {address} PROPOSAL -> {PROPOSAL[:10]} Error-> {data.get('error_description')}")
+                                            sleep_indicator(random.randint(1, TIME_ERROR))
+                                    else:
+                                        logger.success(
+                                            f"[{num_acc}/{len(keys)}][{k + 1}/{len(proposal_data)}] {address} PROPOSAL -> {PROPOSAL[:10]} Success")
+                                        sleep_indicator(random.randint(TIME, TIMEMAX))
+                                        STATUS = False
+                                except Exception as e:
+                                    logger.error(f'{address} -> failed check json')
+                                    sleep_indicator(random.randint(7, TIME_ERROR))
+                                    break  # Break out of the retry loop if successful
+                        except asyncio.TimeoutError:
+                            if attempt < 2:  # If not the last attempt
+                                await asyncio.sleep(3)  # Wait for 3 seconds before retrying
                             else:
-                                logger.success(
-                                    f"[{num_acc}/{len(keys)}][{k + 1}/{len(proposal_data)}] {address} PROPOSAL -> {PROPOSAL[:10]} Success")
-                                sleep_indicator(random.randint(TIME, TIMEMAX))
-                                STATUS = False
-                            
-                        except Exception as e:
-                            logger.error(f'{address} -> failed check json')
-                            sleep_indicator(random.randint(7, TIME_ERROR))
-
+                                # Log or handle the failure after all attempts
+                                print("Request timed out after multiple attempts")
         await asyncio.sleep(random.randint(27, TIME))
-
 
 with open('key.txt', 'r') as f:
     keys = [i for i in [k.strip() for k in f] if i != '']
