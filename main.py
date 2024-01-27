@@ -4,7 +4,7 @@ import time
 from loguru import logger
 import aiohttp
 import asyncio
-from config import TIME, TIMEMAX, TIME_ERROR, USE_PROXY
+from config import TIME, TIMEMAX, TIME_ERROR, USE_PROXY, VOTE_CHOICES
 import random
 import ast
 import json
@@ -162,7 +162,9 @@ async def req(key, p):
     for k, inf in enumerate(proposal_data):
         if k == 0:
             x += 1
-        SPACE, PROPOSAL, CHOICE = inf.split('@')[0], inf.split('@')[1], inf.split('@')[2]
+        SPACE, PROPOSAL = inf.split('@')[0], inf.split('@')[1]
+        vote_choice = random.choice(VOTE_CHOICES)
+        CHOICE = str(vote_choice)
 
         type_choise = "uint32"
 
@@ -209,7 +211,7 @@ async def req(key, p):
                                             sleep_indicator(random.randint(1, TIME_ERROR))
                                     else:
                                         logger.success(
-                                            f"[{num_acc}/{len(keys)}][{k + 1}/{len(proposal_data)}] {address} PROPOSAL -> {PROPOSAL[:10]} Success")
+                                            f"[{num_acc}/{len(keys)}][{k + 1}/{len(proposal_data)}] {address} PROPOSAL -> {PROPOSAL[:10]} -> Choice#{CHOICE} -> Success")
                                         sleep_indicator(random.randint(TIME, TIMEMAX))
                                         STATUS = False
                                 except Exception as e:
@@ -247,7 +249,7 @@ async def req(key, p):
                                             sleep_indicator(random.randint(1, TIME_ERROR))
                                     else:
                                         logger.success(
-                                            f"[{num_acc}/{len(keys)}][{k + 1}/{len(proposal_data)}] {address} PROPOSAL -> {PROPOSAL[:10]} Success")
+                                            f"[{num_acc}/{len(keys)}][{k + 1}/{len(proposal_data)}] {address} PROPOSAL -> {PROPOSAL[:10]} -> Choice#{CHOICE} -> Success")
                                         sleep_indicator(random.randint(TIME, TIMEMAX))
                                         STATUS = False
                                 except Exception as e:
