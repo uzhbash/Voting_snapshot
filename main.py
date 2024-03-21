@@ -151,6 +151,7 @@ def sleep_indicator(sec):
 # endregion
 
 async def req(key, p):
+
     tm = random.randint(1, 3)
 
     await asyncio.sleep(tm)
@@ -212,8 +213,15 @@ async def req(key, p):
                                     else:
                                         logger.success(
                                             f"[{num_acc}/{len(keys)}][{k + 1}/{len(proposal_data)}] {address} PROPOSAL -> {PROPOSAL[:10]} -> Choice#{CHOICE} -> Success")
-                                        sleep_indicator(random.randint(TIME, TIMEMAX))
+                                        logger.success(
+                                            f"[{num_acc}/{len(keys)}][{k + 1}/{len(proposal_data)}] {address} Deleted from the list")
+                                        
                                         STATUS = False
+                                        keys.remove(key)  # Remove the key from the list
+                                        with open('key.txt', 'w') as f:
+                                            f.write('\n'.join(keys))  # Update the "key.txt" file without the processed key
+                                        sleep_indicator(random.randint(TIME, TIMEMAX))
+
                                 except Exception as e:
                                     logger.error(f'{address} -> failed check json')
                                     sleep_indicator(random.randint(7, TIME_ERROR))
@@ -250,8 +258,15 @@ async def req(key, p):
                                     else:
                                         logger.success(
                                             f"[{num_acc}/{len(keys)}][{k + 1}/{len(proposal_data)}] {address} PROPOSAL -> {PROPOSAL[:10]} -> Choice#{CHOICE} -> Success")
-                                        sleep_indicator(random.randint(TIME, TIMEMAX))
+                                        logger.success(
+                                            f"[{num_acc}/{len(keys)}][{k + 1}/{len(proposal_data)}] {address} Deleted from the list")
+                                        
                                         STATUS = False
+                                        keys.remove(key)  # Remove the key from the list
+                                        with open('key.txt', 'w') as f:
+                                            f.write('\n'.join(keys))  # Update the "key.txt" file without the processed key
+                                        sleep_indicator(random.randint(TIME, TIMEMAX))
+
                                 except Exception as e:
                                     logger.error(f'{address} -> failed check json')
                                     sleep_indicator(random.randint(7, TIME_ERROR))
